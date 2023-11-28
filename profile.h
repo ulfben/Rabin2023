@@ -8,15 +8,19 @@
  * "Portions Copyright (C) Steve Rabin, 2000"
  */
 
-#ifndef _PROFILE_H
-#define _PROFILE_H
+#pragma once
+#include <string_view>
 
-void ProfileInit( void );
-void ProfileBegin( const char* name );
-void ProfileEnd(const char* name );
-void ProfileDumpOutputToBuffer( void );
-void StoreProfileInHistory( const char* name, float percent );
-void GetProfileFromHistory( const char* name, float* ave, float* min, float* max );
-void ProfileDraw( void );
+struct Measurement {
+    float ave = 0;
+    float min = 0;
+    float max = 0;
+};
 
-#endif
+void ProfileInit() noexcept;
+void ProfileBegin(std::string_view name) noexcept;
+void ProfileEnd(std::string_view name) noexcept;
+void ProfileDumpOutputToBuffer() noexcept;
+void StoreProfileInHistory(std::string_view name, float percent ) noexcept;
+Measurement GetProfileFromHistory(std::string_view name) noexcept;
+void ProfileDraw() noexcept;

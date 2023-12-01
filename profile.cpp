@@ -16,7 +16,7 @@ void ProfileDumpOutputToBuffer() noexcept;
 void StoreProfileInHistory(std::string_view name, float percent) noexcept;
 Measurement GetProfileFromHistory(std::string_view name) noexcept;
 
-struct ProfileSample {
+struct Sample {
     std::string szName{};               // Name of sample
     float fStartTime = 0.0f;            // The current open profile start time
     float fAccumulator = 0.0f;          // All samples this frame added together
@@ -27,7 +27,7 @@ struct ProfileSample {
     bool bValid = false;                // Whether this data is valid 
 };
 
-struct ProfileSampleHistory {
+struct SampleHistory {
     std::string szName{};    // Name of the sample
     float fAve = 0.0f;       // Average time per frame (percentage)
     float fMin = 0.0f;       // Minimum time per frame (percentage)
@@ -37,8 +37,8 @@ struct ProfileSampleHistory {
 
 constexpr size_t PROFILE_COUNT = 50;
 
-std::array<ProfileSample, PROFILE_COUNT> samples{};
-std::array<ProfileSampleHistory, PROFILE_COUNT> history{};
+std::array<Sample, PROFILE_COUNT> samples{};
+std::array<SampleHistory, PROFILE_COUNT> history{};
 float g_startProfile = 0.0f;
 float g_endProfile = 0.0f;
 std::string textBox = "";
@@ -78,47 +78,45 @@ void Profile::Begin(std::string_view name) noexcept {
 }
 
 void Profile::End(std::string_view name) noexcept {
-    unsigned int i = 0;
-    unsigned int numParents = 0;
+    auto sample = std::find_if(samples.begin(), samples.end(),
+        [name](const Sample& s) {
+            return s.bValid && s.szName == name;
+        });
 
-    while (i < PROFILE_COUNT && samples[i].bValid == true) {
-        if (samples[i].szName == name) { // Found the sample
-            unsigned int inner = 0;
-            int parent = -1;
-            float fEndTime = GetExactTime();
-            samples[i].iOpenProfiles--;
-
-            // Count all parents and find the immediate parent
-            while (samples[inner].bValid == true) {
-                if (samples[inner].iOpenProfiles >
-                    0) { // Found a parent (any open profiles are parents)
-                    numParents++;
-                    if (parent < 0) { // Replace invalid parent (index)
-                        parent = inner;
-                    }
-                    else if (samples[inner].fStartTime >=
-                        samples[parent]
-                        .fStartTime) { // Replace with more immediate parent
-                        parent = inner;
-                    }
-                }
-                inner++;
-            }
-
-            // Remember the current number of parents of the sample
-            samples[i].iNumParents = numParents;
-
-            if (parent >= 0) { // Record this time in fChildrenSampleTime (add it in)
-                samples[parent].fChildrenSampleTime +=
-                    fEndTime - samples[i].fStartTime;
-            }
-
-            // Save sample time in accumulator
-            samples[i].fAccumulator += fEndTime - samples[i].fStartTime;
-            return;
-        }
-        i++;
+    if (sample == std::end(samples)) {
+        return;
     }
+    unsigned int inner = 0;
+    int parent = -1;
+    float fEndTime = GetExactTime();
+    unsigned int numParents = 0;
+    sample->iOpenProfiles--;
+
+    // Count all parents and find the immediate parent
+    while (samples[inner].bValid == true) {
+        if (samples[inner].iOpenProfiles >
+            0) { // Found a parent (any open profiles are parents)
+            numParents++;
+            if (parent < 0) { // Replace invalid parent (index)
+                parent = inner;
+            }
+            else if (samples[inner].fStartTime >=
+                samples[parent]
+                .fStartTime) { // Replace with more immediate parent
+                parent = inner;
+            }
+        }
+        inner++;
+    }
+
+    // Remember the current number of parents of the sample
+    sample->iNumParents = numParents;
+
+    if (parent >= 0) { // Record this time in fChildrenSampleTime (add it in)
+        samples[parent].fChildrenSampleTime +=
+            fEndTime - sample->fStartTime;
+    }
+    sample->fAccumulator += fEndTime - sample->fStartTime;
 }
 
 std::string addIndentations(std::string_view name, size_t level) {

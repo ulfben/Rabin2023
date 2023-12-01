@@ -77,46 +77,46 @@ void Profile::Begin(std::string_view name) noexcept {
     unused->fChildrenSampleTime = 0.0f;
 }
 
-void Profile::End(std::string_view name) noexcept {
-    auto sample = std::find_if(samples.begin(), samples.end(),
-        [name](const Sample& s) {
-            return s.bValid && s.szName == name;
-        });
+auto getParentCount() noexcept {
+    return std::ranges::count_if(samples, [](auto & s) noexcept {
+       return s.bValid && s.iOpenProfiles > 0;
+    });
+}
 
-    if (sample == std::end(samples)) {
-        return;
-    }
+auto& getMostImmediateParentIndex() noexcept {
     unsigned int inner = 0;
     int parent = -1;
-    float fEndTime = GetExactTime();
-    unsigned int numParents = 0;
-    sample->iOpenProfiles--;
-
-    // Count all parents and find the immediate parent
     while (samples[inner].bValid == true) {
-        if (samples[inner].iOpenProfiles >
-            0) { // Found a parent (any open profiles are parents)
-            numParents++;
+        if (samples[inner].iOpenProfiles > 0) { // Found a parent (any open profiles are parents)          
             if (parent < 0) { // Replace invalid parent (index)
                 parent = inner;
             }
-            else if (samples[inner].fStartTime >=
-                samples[parent]
-                .fStartTime) { // Replace with more immediate parent
+            else if (samples[inner].fStartTime >= samples[parent].fStartTime) { // Replace with more immediate parent
                 parent = inner;
             }
         }
         inner++;
     }
+    return parent;
+}
 
-    // Remember the current number of parents of the sample
-    sample->iNumParents = numParents;
-
-    if (parent >= 0) { // Record this time in fChildrenSampleTime (add it in)
-        samples[parent].fChildrenSampleTime +=
-            fEndTime - sample->fStartTime;
+void Profile::End(std::string_view name) noexcept {
+    auto sample = std::find_if(samples.begin(), samples.end(),
+        [name](const Sample& s) {
+            return s.bValid && s.szName == name;
+        });
+    if (sample == std::end(samples)) {
+        return;
+    } 
+    sample->iOpenProfiles--;
+    const float duration = GetExactTime() - sample->fStartTime; 
+    sample->iNumParents = getParentCount();
+    auto i = getMostImmediateParentIndex();
+    if (i >= 0) { // Record this time in fChildrenSampleTime (add it in)
+        auto& parent = samples[i];
+        parent.fChildrenSampleTime += duration;
     }
-    sample->fAccumulator += fEndTime - sample->fStartTime;
+    sample->fAccumulator += duration;
 }
 
 std::string addIndentations(std::string_view name, size_t level) {

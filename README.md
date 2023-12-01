@@ -9,7 +9,7 @@ How can we improve the old legacy C-code, to match modern C++ best practices?
 * ~~Get rid of macros (prefer containers that know their own size).~~
 * ~~“Get” functions are expected to return something. Get rid of the output parameters and use return the values instead. (structured binding!)~~
 * Consider namespace for free functions.
-* ~~C-style arrays should be std containers (std array or vector). ~~
+* ~~C-style arrays should be std containers (std array or vector).~~
 * Remove Hungarian notation.
 * For loops to ranged.
 * Most loops should be algorithms.
